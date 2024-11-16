@@ -1,0 +1,8 @@
+- page flip animation
+- page properties edit(background, font, font size etc)
+- highlight text with different colors and mark the precise location of the highlight so that it can be retrieved later
+- navigate to pages from the table of contents, other in book hyperlinks.
+- search navigation
+- bookmark animation
+- notes
+- read aloud
