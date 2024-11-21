@@ -51,7 +51,6 @@ dependencies:
   flutter_html: ^3.0.0-beta.2
   equatable: ^2.0.5
   bookfx: ^0.0.2
-  page_flip: ^0.2.3
   path_provider: ^2.1.5
 
 dev_dependencies:

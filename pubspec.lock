@@ -328,14 +328,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.15.0"
-  page_flip:
-    dependency: "direct main"
-    description:
-      name: page_flip
-      sha256: fcd32ad12b9733175d6234870c961a1cc76080233a0230ba54cc152e82f3fcae
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.2.3"
   path:
     dependency: "direct main"
     description:

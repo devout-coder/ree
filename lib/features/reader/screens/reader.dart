@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:epubx/epubx.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:page_flip/page_flip.dart';
+import 'package:ree/features/page_flip/page_flip.dart';
 import 'package:ree/features/reader/utils/styles.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart' as dom;
@@ -85,9 +85,9 @@ class _BookViewState extends State<BookView> {
     for (int i = 0; i < onlyChapterContent.length; i++) {
       finalPages.addAll(
           await convertChapterToTextSpans(onlyChapterContent[i], pageSize));
-      // debugPrint("converted chapter");
+      debugPrint("converted chapter");
     }
-    // debugPrint("done with everything");
+    debugPrint("done with everything");
     setState(() {
       paginatedHtml = finalPages;
     });
@@ -306,23 +306,18 @@ class _BookViewState extends State<BookView> {
     return Scaffold(
       body: paginatedHtml.isNotEmpty
           ? SafeArea(
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                    horizontal: paddingHorizontal, vertical: paddingVertical),
-                child: PageFlipWidget(
-                  key: GlobalKey(),
-                  backgroundColor: Colors.white,
-                  lastPage: Container(
-                    color: Colors.white,
-                    child: const Center(
-                      child: Text('Last Page!'),
-                    ),
-                  ),
-                  children: <Widget>[
-                    for (var i = 0; i < paginatedHtml.length; i++)
-                      RichText(text: paginatedHtml[i])
-                  ],
-                ),
+              child: PageFlipWidget(
+                key: GlobalKey(),
+                children: <Widget>[
+                  for (var i = 0; i < paginatedHtml.length; i++)
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: paddingHorizontal,
+                        vertical: paddingVertical,
+                      ),
+                      child: RichText(text: paginatedHtml[i]),
+                    )
+                ],
               ),
             )
           : Container(),
