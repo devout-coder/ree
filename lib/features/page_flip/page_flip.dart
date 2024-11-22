@@ -14,9 +14,9 @@ class PageFlipWidget extends StatefulWidget {
     this.backgroundColor = Colors.white,
     required this.children,
     this.initialIndex = 0,
-  })  : assert(initialIndex < children.length,
-            'initialIndex cannot be greater than children length'),
-        super(key: key);
+    this.onPageChanged,
+    this.onLastPageExit,
+  }) : super(key: key);
 
   final Color backgroundColor;
   final List<Widget> children;
@@ -24,6 +24,8 @@ class PageFlipWidget extends StatefulWidget {
   final int initialIndex;
   final double cutoffForward;
   final double cutoffPrevious;
+  final void Function(int pageNumber)? onPageChanged;
+  final VoidCallback? onLastPageExit;
 
   @override
   PageFlipWidgetState createState() => PageFlipWidgetState();
@@ -53,9 +55,10 @@ class PageFlipWidgetState extends State<PageFlipWidget>
   void initState() {
     super.initState();
     imageData = {};
-    currentPage = ValueNotifier(-1);
+    // currentPage = ValueNotifier(-1);
     currentWidget = ValueNotifier(Container());
     currentPageIndex = ValueNotifier(0);
+    // debugPrint("init state called for page flip");
     _setUp();
   }
 
@@ -80,9 +83,8 @@ class PageFlipWidgetState extends State<PageFlipWidget>
     }
     pages = pages.reversed.toList();
     pageNumber = widget.initialIndex;
-    lastPageLoad = pages.length < 3 ? 0 : 3;
     if (widget.initialIndex != 0) {
-      currentPage = ValueNotifier(widget.initialIndex);
+      // currentPage = ValueNotifier(widget.initialIndex);
       currentWidget = ValueNotifier(pages[pageNumber]);
       currentPageIndex = ValueNotifier(widget.initialIndex);
     }
@@ -90,12 +92,11 @@ class PageFlipWidgetState extends State<PageFlipWidget>
 
   bool get _isLastPage => (pages.length - 1) == pageNumber;
 
-  int lastPageLoad = 0;
-
   bool get _isFirstPage => pageNumber == 0;
 
   void _turnPage(DragUpdateDetails details, BoxConstraints dimens) {
-    currentPage.value = pageNumber;
+    // currentPage.value = pageNumber;
+    currentPageIndex.value = pageNumber;
     currentWidget.value = Container();
     final ratio = details.delta.dx / dimens.maxWidth;
     if (_isForward == null) {
@@ -118,10 +119,10 @@ class PageFlipWidgetState extends State<PageFlipWidget>
   }
 
   Future _onDragFinish() async {
+    debugPrint("on drag finish called");
     if (_isForward != null) {
       if (_isForward == true) {
-        if (!_isLastPage &&
-            _controllers[pageNumber].value <= (widget.cutoffForward + 0.15)) {
+        if (_controllers[pageNumber].value <= (widget.cutoffForward + 0.15)) {
           await nextPage();
         } else {
           if (!_isLastPage) {
@@ -146,15 +147,17 @@ class PageFlipWidgetState extends State<PageFlipWidget>
     }
 
     _isForward = null;
-    currentPage.value = -1;
+    // currentPage.value = -1;
   }
 
   Future nextPage() async {
+    debugPrint("next page called");
     await _controllers[pageNumber].reverse();
     if (mounted) {
       setState(() {
         pageNumber++;
       });
+      widget.onPageChanged?.call(pageNumber);
     }
 
     if (pageNumber < pages.length) {
@@ -165,6 +168,7 @@ class PageFlipWidgetState extends State<PageFlipWidget>
     if (_isLastPage) {
       currentPageIndex.value = pageNumber;
       currentWidget.value = pages[pageNumber];
+      widget.onLastPageExit?.call();
       return;
     }
   }
@@ -175,6 +179,7 @@ class PageFlipWidgetState extends State<PageFlipWidget>
       setState(() {
         pageNumber--;
       });
+      widget.onPageChanged?.call(pageNumber);
     }
     currentPageIndex.value = pageNumber;
     currentWidget.value = pages[pageNumber];
@@ -183,9 +188,11 @@ class PageFlipWidgetState extends State<PageFlipWidget>
 
   Future goToPage(int index) async {
     if (mounted) {
+      // debugPrint("go to page set state to be called");
       setState(() {
         pageNumber = index;
       });
+      widget.onPageChanged?.call(pageNumber);
     }
     for (var i = 0; i < _controllers.length; i++) {
       if (i == index) {
@@ -200,11 +207,16 @@ class PageFlipWidgetState extends State<PageFlipWidget>
     }
     currentPageIndex.value = pageNumber;
     currentWidget.value = pages[pageNumber];
-    currentPage.value = pageNumber;
+    // currentPage.value = pageNumber;
   }
 
   @override
   Widget build(BuildContext context) {
+    if (widget.initialIndex >= widget.children.length) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    // debugPrint("build method called for page flip");
     return LayoutBuilder(
       builder: (context, dimens) => GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -228,7 +240,7 @@ class PageFlipWidgetState extends State<PageFlipWidget>
 }
 
 Map<int, ui.Image?> imageData = {};
-ValueNotifier<int> currentPage = ValueNotifier(-1);
+// ValueNotifier<int> currentPage = ValueNotifier(-1);
 ValueNotifier<Widget> currentWidget = ValueNotifier(Container());
 ValueNotifier<int> currentPageIndex = ValueNotifier(0);
 
@@ -257,6 +269,10 @@ class PageFlipBuilderState extends State<PageFlipBuilder> {
     if (_boundaryKey.currentContext == null) return;
     await Future.delayed(const Duration(milliseconds: 100));
     if (mounted) {
+      if (_boundaryKey.currentContext == null ||
+          _boundaryKey.currentContext!.findRenderObject() == null) {
+        return;
+      }
       final boundary = _boundaryKey.currentContext!.findRenderObject()!
           as RenderRepaintBoundary;
       final image = await boundary.toImage(pixelRatio: 2.1);
@@ -269,7 +285,7 @@ class PageFlipBuilderState extends State<PageFlipBuilder> {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder(
-      valueListenable: currentPage,
+      valueListenable: currentPageIndex,
       builder: (context, value, child) {
         if (imageData[widget.pageIndex] != null && value >= 0) {
           return CustomPaint(
