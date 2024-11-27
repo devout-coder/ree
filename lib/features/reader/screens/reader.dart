@@ -331,8 +331,8 @@ class _BookViewState extends State<BookView> {
               )
           ],
           onLastPageExit: () {
-            debugPrint("on last page exit called");
-            setState(() {});
+            // debugPrint("on last page exit called");
+            // setState(() {});
           },
           initialIndex: _currentPage,
           onPageChanged: (pageNumber) {
