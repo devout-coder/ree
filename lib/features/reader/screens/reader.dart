@@ -337,7 +337,7 @@ class _BookViewState extends State<BookView> {
           initialIndex: _currentPage,
           onPageChanged: (pageNumber) {
             _currentPage = pageNumber;
-            debugPrint("current page: $_currentPage");
+            // debugPrint("current page: $_currentPage");
           },
         ),
       ),

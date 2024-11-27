@@ -33,7 +33,6 @@ class PageFlipWidget extends StatefulWidget {
 
 class PageFlipWidgetState extends State<PageFlipWidget>
     with TickerProviderStateMixin {
-  int pageNumber = 0;
   List<Widget> pages = [];
   final List<AnimationController> _controllers = [];
   bool? _isForward;
@@ -55,10 +54,7 @@ class PageFlipWidgetState extends State<PageFlipWidget>
   void initState() {
     super.initState();
     imageData = {};
-    // currentPage = ValueNotifier(-1);
-    currentWidget = ValueNotifier(Container());
     currentPageIndex = ValueNotifier(0);
-    // debugPrint("init state called for page flip");
     _setUp();
   }
 
@@ -82,22 +78,16 @@ class PageFlipWidgetState extends State<PageFlipWidget>
       pages.add(child);
     }
     pages = pages.reversed.toList();
-    pageNumber = widget.initialIndex;
     if (widget.initialIndex != 0) {
-      // currentPage = ValueNotifier(widget.initialIndex);
-      currentWidget = ValueNotifier(pages[pageNumber]);
       currentPageIndex = ValueNotifier(widget.initialIndex);
     }
   }
 
-  bool get _isLastPage => (pages.length - 1) == pageNumber;
+  bool get _isLastPage => (pages.length - 1) == currentPageIndex.value;
 
-  bool get _isFirstPage => pageNumber == 0;
+  bool get _isFirstPage => currentPageIndex.value == 0;
 
   void _turnPage(DragUpdateDetails details, BoxConstraints dimens) {
-    // currentPage.value = pageNumber;
-    currentPageIndex.value = pageNumber;
-    currentWidget.value = Container();
     final ratio = details.delta.dx / dimens.maxWidth;
     if (_isForward == null) {
       if (details.delta.dx > 0.0) {
@@ -109,11 +99,11 @@ class PageFlipWidgetState extends State<PageFlipWidget>
       }
     }
 
-    if (_isForward == true || pageNumber == 0) {
+    if (_isForward == true || currentPageIndex.value == 0) {
       final pageLength = pages.length;
       final pageSize = pageLength - 1;
-      if (pageNumber != pageSize && !_isLastPage) {
-        _controllers[pageNumber].value += ratio;
+      if (currentPageIndex.value != pageSize && !_isLastPage) {
+        _controllers[currentPageIndex.value].value += ratio;
       }
     }
   }
@@ -122,22 +112,24 @@ class PageFlipWidgetState extends State<PageFlipWidget>
     debugPrint("on drag finish called");
     if (_isForward != null) {
       if (_isForward == true) {
-        if (_controllers[pageNumber].value <= (widget.cutoffForward + 0.15)) {
+        if (_controllers[currentPageIndex.value].value <=
+            (widget.cutoffForward + 0.15)) {
           await nextPage();
         } else {
           if (!_isLastPage) {
-            await _controllers[pageNumber].forward();
+            await _controllers[currentPageIndex.value].forward();
           }
         }
       } else {
         if (!_isFirstPage &&
-            _controllers[pageNumber - 1].value >= widget.cutoffPrevious) {
+            _controllers[currentPageIndex.value - 1].value >=
+                widget.cutoffPrevious) {
           await previousPage();
         } else {
           if (_isFirstPage) {
-            await _controllers[pageNumber].forward();
+            await _controllers[currentPageIndex.value].forward();
           } else {
-            await _controllers[pageNumber - 1].reverse();
+            await _controllers[currentPageIndex.value - 1].reverse();
             if (!_isFirstPage) {
               await previousPage();
             }
@@ -147,52 +139,40 @@ class PageFlipWidgetState extends State<PageFlipWidget>
     }
 
     _isForward = null;
-    // currentPage.value = -1;
   }
 
   Future nextPage() async {
-    debugPrint("next page called");
-    await _controllers[pageNumber].reverse();
-    if (mounted) {
-      setState(() {
-        pageNumber++;
-      });
-      widget.onPageChanged?.call(pageNumber);
-    }
+    await _controllers[currentPageIndex.value].reverse();
 
-    if (pageNumber < pages.length) {
-      currentPageIndex.value = pageNumber;
-      currentWidget.value = pages[pageNumber];
+    if (currentPageIndex.value < pages.length) {
+      if (mounted) {
+        widget.onPageChanged?.call(currentPageIndex.value + 1);
+      }
+      currentPageIndex.value = currentPageIndex.value + 1;
     }
 
     if (_isLastPage) {
-      currentPageIndex.value = pageNumber;
-      currentWidget.value = pages[pageNumber];
       widget.onLastPageExit?.call();
       return;
     }
+
+    debugPrint("end of next page called");
   }
 
   Future previousPage() async {
-    await _controllers[pageNumber - 1].forward();
+    await _controllers[currentPageIndex.value - 1].forward();
     if (mounted) {
-      setState(() {
-        pageNumber--;
-      });
-      widget.onPageChanged?.call(pageNumber);
+      widget.onPageChanged?.call(currentPageIndex.value - 1);
     }
-    currentPageIndex.value = pageNumber;
-    currentWidget.value = pages[pageNumber];
-    imageData[pageNumber] = null;
+    currentPageIndex.value = currentPageIndex.value - 1;
+    imageData[currentPageIndex.value] = null;
+    debugPrint("end of previous page called");
   }
 
   Future goToPage(int index) async {
     if (mounted) {
       // debugPrint("go to page set state to be called");
-      setState(() {
-        pageNumber = index;
-      });
-      widget.onPageChanged?.call(pageNumber);
+      widget.onPageChanged?.call(index);
     }
     for (var i = 0; i < _controllers.length; i++) {
       if (i == index) {
@@ -205,9 +185,7 @@ class PageFlipWidgetState extends State<PageFlipWidget>
         }
       }
     }
-    currentPageIndex.value = pageNumber;
-    currentWidget.value = pages[pageNumber];
-    // currentPage.value = pageNumber;
+    currentPageIndex.value = index;
   }
 
   @override
@@ -240,8 +218,6 @@ class PageFlipWidgetState extends State<PageFlipWidget>
 }
 
 Map<int, ui.Image?> imageData = {};
-// ValueNotifier<int> currentPage = ValueNotifier(-1);
-ValueNotifier<Widget> currentWidget = ValueNotifier(Container());
 ValueNotifier<int> currentPageIndex = ValueNotifier(0);
 
 class PageFlipBuilder extends StatefulWidget {
