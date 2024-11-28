@@ -14,9 +14,9 @@ class PageFlipWidget extends StatefulWidget {
     this.backgroundColor = Colors.white,
     required this.children,
     this.initialIndex = 0,
-  })  : assert(initialIndex < children.length,
-            'initialIndex cannot be greater than children length'),
-        super(key: key);
+    this.onPageChanged,
+    this.onLastPageExit,
+  }) : super(key: key);
 
   final Color backgroundColor;
   final List<Widget> children;
@@ -24,6 +24,8 @@ class PageFlipWidget extends StatefulWidget {
   final int initialIndex;
   final double cutoffForward;
   final double cutoffPrevious;
+  final void Function(int pageNumber)? onPageChanged;
+  final VoidCallback? onLastPageExit;
 
   @override
   PageFlipWidgetState createState() => PageFlipWidgetState();
@@ -31,7 +33,6 @@ class PageFlipWidget extends StatefulWidget {
 
 class PageFlipWidgetState extends State<PageFlipWidget>
     with TickerProviderStateMixin {
-  int pageNumber = 0;
   List<Widget> pages = [];
   final List<AnimationController> _controllers = [];
   bool? _isForward;
@@ -53,16 +54,32 @@ class PageFlipWidgetState extends State<PageFlipWidget>
   void initState() {
     super.initState();
     imageData = {};
-    currentPage = ValueNotifier(-1);
-    currentWidget = ValueNotifier(Container());
     currentPageIndex = ValueNotifier(0);
-    _setUp();
+    _refreshPages();
   }
 
-  void _setUp() {
+  void _refreshPages() {
     _controllers.clear();
     pages.clear();
-    for (var i = 0; i < widget.children.length; i++) {
+    if (currentPageIndex.value > 0) {
+      final controller = AnimationController(
+        value: 0,
+        duration: widget.duration,
+        vsync: this,
+      );
+      _controllers.add(controller);
+      final child = PageFlipBuilder(
+        amount: controller,
+        backgroundColor: widget.backgroundColor,
+        pageIndex: currentPageIndex.value - 1,
+        key: Key('${currentPageIndex.value - 1}'),
+        child: widget.children[currentPageIndex.value - 1],
+      );
+      pages.add(child);
+    }
+    for (var i = 0;
+        i < math.min(widget.children.length - currentPageIndex.value, 2);
+        i++) {
       final controller = AnimationController(
         value: 1,
         duration: widget.duration,
@@ -72,31 +89,26 @@ class PageFlipWidgetState extends State<PageFlipWidget>
       final child = PageFlipBuilder(
         amount: controller,
         backgroundColor: widget.backgroundColor,
-        pageIndex: i,
-        key: Key('$i'),
-        child: widget.children[i],
+        pageIndex: currentPageIndex.value + i,
+        key: Key('${currentPageIndex.value + i}'),
+        child: widget.children[currentPageIndex.value + i],
       );
       pages.add(child);
     }
-    pages = pages.reversed.toList();
-    pageNumber = widget.initialIndex;
-    lastPageLoad = pages.length < 3 ? 0 : 3;
-    if (widget.initialIndex != 0) {
-      currentPage = ValueNotifier(widget.initialIndex);
-      currentWidget = ValueNotifier(pages[pageNumber]);
-      currentPageIndex = ValueNotifier(widget.initialIndex);
-    }
+    setState(() {
+      pages = pages.reversed.toList();
+    });
   }
 
-  bool get _isLastPage => (pages.length - 1) == pageNumber;
+  bool get _isLastPage =>
+      (widget.children.length - 1) == currentPageIndex.value;
 
-  int lastPageLoad = 0;
+  bool get _isFirstPage => currentPageIndex.value == 0;
 
-  bool get _isFirstPage => pageNumber == 0;
+  int get currPageTurnIndex => currentPageIndex.value != 0 ? 1 : 0;
+  int get prevPageTurnIndex => 0;
 
   void _turnPage(DragUpdateDetails details, BoxConstraints dimens) {
-    currentPage.value = pageNumber;
-    currentWidget.value = Container();
     final ratio = details.delta.dx / dimens.maxWidth;
     if (_isForward == null) {
       if (details.delta.dx > 0.0) {
@@ -107,12 +119,9 @@ class PageFlipWidgetState extends State<PageFlipWidget>
         _isForward = null;
       }
     }
-
-    if (_isForward == true || pageNumber == 0) {
-      final pageLength = pages.length;
-      final pageSize = pageLength - 1;
-      if (pageNumber != pageSize && !_isLastPage) {
-        _controllers[pageNumber].value += ratio;
+    if (_isForward == true || currentPageIndex.value == 0) {
+      if (!_isLastPage) {
+        _controllers[currPageTurnIndex].value += ratio;
       }
     }
   }
@@ -120,23 +129,23 @@ class PageFlipWidgetState extends State<PageFlipWidget>
   Future _onDragFinish() async {
     if (_isForward != null) {
       if (_isForward == true) {
-        if (!_isLastPage &&
-            _controllers[pageNumber].value <= (widget.cutoffForward + 0.15)) {
+        if (_controllers[currPageTurnIndex].value <=
+            (widget.cutoffForward + 0.15)) {
           await nextPage();
         } else {
           if (!_isLastPage) {
-            await _controllers[pageNumber].forward();
+            await _controllers[currPageTurnIndex].forward();
           }
         }
       } else {
         if (!_isFirstPage &&
-            _controllers[pageNumber - 1].value >= widget.cutoffPrevious) {
+            _controllers[prevPageTurnIndex].value >= widget.cutoffPrevious) {
           await previousPage();
         } else {
           if (_isFirstPage) {
-            await _controllers[pageNumber].forward();
+            await _controllers[currPageTurnIndex].forward();
           } else {
-            await _controllers[pageNumber - 1].reverse();
+            await _controllers[prevPageTurnIndex].reverse();
             if (!_isFirstPage) {
               await previousPage();
             }
@@ -146,46 +155,36 @@ class PageFlipWidgetState extends State<PageFlipWidget>
     }
 
     _isForward = null;
-    currentPage.value = -1;
   }
 
   Future nextPage() async {
-    await _controllers[pageNumber].reverse();
+    await _controllers[currPageTurnIndex].reverse();
     if (mounted) {
-      setState(() {
-        pageNumber++;
-      });
+      widget.onPageChanged?.call(currentPageIndex.value + 1);
     }
-
-    if (pageNumber < pages.length) {
-      currentPageIndex.value = pageNumber;
-      currentWidget.value = pages[pageNumber];
-    }
+    currentPageIndex.value = currentPageIndex.value + 1;
 
     if (_isLastPage) {
-      currentPageIndex.value = pageNumber;
-      currentWidget.value = pages[pageNumber];
-      return;
+      widget.onLastPageExit?.call();
     }
+
+    _refreshPages();
   }
 
   Future previousPage() async {
-    await _controllers[pageNumber - 1].forward();
+    await _controllers[prevPageTurnIndex].forward();
     if (mounted) {
-      setState(() {
-        pageNumber--;
-      });
+      widget.onPageChanged?.call(currentPageIndex.value - 1);
     }
-    currentPageIndex.value = pageNumber;
-    currentWidget.value = pages[pageNumber];
-    imageData[pageNumber] = null;
+    currentPageIndex.value = currentPageIndex.value - 1;
+    imageData[currentPageIndex.value] = null;
+
+    _refreshPages();
   }
 
   Future goToPage(int index) async {
     if (mounted) {
-      setState(() {
-        pageNumber = index;
-      });
+      widget.onPageChanged?.call(index);
     }
     for (var i = 0; i < _controllers.length; i++) {
       if (i == index) {
@@ -198,13 +197,15 @@ class PageFlipWidgetState extends State<PageFlipWidget>
         }
       }
     }
-    currentPageIndex.value = pageNumber;
-    currentWidget.value = pages[pageNumber];
-    currentPage.value = pageNumber;
+    currentPageIndex.value = index;
   }
 
   @override
   Widget build(BuildContext context) {
+    if (widget.initialIndex >= widget.children.length) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return LayoutBuilder(
       builder: (context, dimens) => GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -228,8 +229,6 @@ class PageFlipWidgetState extends State<PageFlipWidget>
 }
 
 Map<int, ui.Image?> imageData = {};
-ValueNotifier<int> currentPage = ValueNotifier(-1);
-ValueNotifier<Widget> currentWidget = ValueNotifier(Container());
 ValueNotifier<int> currentPageIndex = ValueNotifier(0);
 
 class PageFlipBuilder extends StatefulWidget {
@@ -257,6 +256,10 @@ class PageFlipBuilderState extends State<PageFlipBuilder> {
     if (_boundaryKey.currentContext == null) return;
     await Future.delayed(const Duration(milliseconds: 100));
     if (mounted) {
+      if (_boundaryKey.currentContext == null ||
+          _boundaryKey.currentContext!.findRenderObject() == null) {
+        return;
+      }
       final boundary = _boundaryKey.currentContext!.findRenderObject()!
           as RenderRepaintBoundary;
       final image = await boundary.toImage(pixelRatio: 2.1);
@@ -269,7 +272,7 @@ class PageFlipBuilderState extends State<PageFlipBuilder> {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder(
-      valueListenable: currentPage,
+      valueListenable: currentPageIndex,
       builder: (context, value, child) {
         if (imageData[widget.pageIndex] != null && value >= 0) {
           return CustomPaint(

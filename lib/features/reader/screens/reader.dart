@@ -7,8 +7,7 @@ import 'package:ree/features/page_flip/page_flip.dart';
 import 'package:ree/features/reader/utils/styles.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart' as dom;
-import 'package:flutter/src/widgets/image.dart'
-    as img_lib; // Use a prefix for the image package
+import 'package:flutter/src/widgets/image.dart' as img_lib;
 
 class BookView extends StatefulWidget {
   final Uint8List? bookBytes;
@@ -19,6 +18,8 @@ class BookView extends StatefulWidget {
 }
 
 class _BookViewState extends State<BookView> {
+  int _currentPage = 0;
+
   @override
   void initState() {
     super.initState();
@@ -82,10 +83,21 @@ class _BookViewState extends State<BookView> {
     );
 
     List<TextSpan> finalPages = [];
-    for (int i = 0; i < onlyChapterContent.length; i++) {
+    int currChapterContentIndex = 0;
+    // for (int i = 0; i < onlyChapterContent.length; i++) {
+    //   finalPages.addAll(
+    //       await convertChapterToTextSpans(onlyChapterContent[i], pageSize));
+    //   currChapterContentIndex = i + 1;
+    //   if (finalPages.length >= 20) break;
+    //   debugPrint("converted initial chapters");
+    // }
+    // setState(() {
+    //   paginatedHtml = finalPages;
+    // });
+    for (int i = currChapterContentIndex; i < onlyChapterContent.length; i++) {
       finalPages.addAll(
           await convertChapterToTextSpans(onlyChapterContent[i], pageSize));
-      debugPrint("converted chapter");
+      debugPrint("converted lazy loading chapter");
     }
     debugPrint("done with everything");
     setState(() {
@@ -303,24 +315,32 @@ class _BookViewState extends State<BookView> {
 
   @override
   Widget build(BuildContext context) {
+    // debugPrint("build method called");
     return Scaffold(
-      body: paginatedHtml.isNotEmpty
-          ? SafeArea(
-              child: PageFlipWidget(
-                key: GlobalKey(),
-                children: <Widget>[
-                  for (var i = 0; i < paginatedHtml.length; i++)
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: paddingHorizontal,
-                        vertical: paddingVertical,
-                      ),
-                      child: RichText(text: paginatedHtml[i]),
-                    )
-                ],
-              ),
-            )
-          : Container(),
+      body: SafeArea(
+        child: PageFlipWidget(
+          key: GlobalKey(),
+          children: <Widget>[
+            for (var i = 0; i < paginatedHtml.length; i++)
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: paddingHorizontal,
+                  vertical: paddingVertical,
+                ),
+                child: RichText(text: paginatedHtml[i]),
+              )
+          ],
+          onLastPageExit: () {
+            // debugPrint("on last page exit called");
+            // setState(() {});
+          },
+          initialIndex: _currentPage,
+          onPageChanged: (pageNumber) {
+            _currentPage = pageNumber;
+            // debugPrint("current page: $_currentPage");
+          },
+        ),
+      ),
     );
   }
 }
