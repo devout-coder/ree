@@ -54,8 +54,9 @@ class PageFlipWidgetState extends State<PageFlipWidget>
   void initState() {
     super.initState();
     imageData = {};
-    currentPageIndex = ValueNotifier(0);
+    currentPageIndex = ValueNotifier(widget.initialIndex);
     _refreshPages();
+    // debugPrint("no of pages are ${widget.children.length}");
   }
 
   void _refreshPages() {
@@ -182,23 +183,23 @@ class PageFlipWidgetState extends State<PageFlipWidget>
     _refreshPages();
   }
 
-  Future goToPage(int index) async {
-    if (mounted) {
-      widget.onPageChanged?.call(index);
-    }
-    for (var i = 0; i < _controllers.length; i++) {
-      if (i == index) {
-        _controllers[i].forward();
-      } else if (i < index) {
-        _controllers[i].reverse();
-      } else {
-        if (_controllers[i].status == AnimationStatus.reverse) {
-          _controllers[i].value = 1;
-        }
-      }
-    }
-    currentPageIndex.value = index;
-  }
+  // Future goToPage(int index) async {
+  //   if (mounted) {
+  //     widget.onPageChanged?.call(index);
+  //   }
+  //   for (var i = 0; i < _controllers.length; i++) {
+  //     if (i == index) {
+  //       _controllers[i].forward();
+  //     } else if (i < index) {
+  //       _controllers[i].reverse();
+  //     } else {
+  //       if (_controllers[i].status == AnimationStatus.reverse) {
+  //         _controllers[i].value = 1;
+  //       }
+  //     }
+  //   }
+  //   currentPageIndex.value = index;
+  // }
 
   @override
   Widget build(BuildContext context) {
