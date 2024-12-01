@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:epubx/epubx.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +13,53 @@ class BookView extends StatefulWidget {
   @override
   State<BookView> createState() => _BookViewState();
 }
+
+class BookData {
+  String chapterHtmlContent;
+  double width;
+  double height;
+
+  BookData({
+    required this.chapterHtmlContent,
+    required this.width,
+    required this.height,
+  });
+
+  String toJsonString() {
+    return jsonEncode(toMap());
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'chapterHtmlContent': chapterHtmlContent,
+      'width': width,
+      'height': height,
+    };
+  }
+
+  static BookData fromJsonString(String jsonString) {
+    return BookData.fromMap(jsonDecode(jsonString));
+  }
+
+  static BookData fromMap(Map<String, dynamic> map) {
+    return BookData(
+      chapterHtmlContent: map['chapterHtmlContent'] as String,
+      width: map['width'] as double,
+      height: map['height'] as double,
+    );
+  }
+
+  @override
+  String toString() => toJsonString();
+}
+
+TextPainter realPagePainter = TextPainter(
+  textDirection: TextDirection.ltr,
+);
+TextPainter fakePagePainter = TextPainter(
+  textDirection: TextDirection.ltr,
+);
+Map<String, EpubByteContentFile>? images;
 
 class _BookViewState extends State<BookView> {
   int _currentPage = 0;
@@ -49,19 +98,18 @@ class _BookViewState extends State<BookView> {
   double paddingHorizontal = 16;
   double paddingVertical = 16;
 
-  Map<String, EpubByteContentFile>? images;
+  // Map<String, EpubByteContentFile>? images;
   // EpubContent? content;
   List<TextSpan> paginatedHtml = [];
 
-  TextPainter fakePagePainter = TextPainter(
-    textDirection: TextDirection.ltr,
-  );
-  TextPainter realPagePainter = TextPainter(
-    textDirection: TextDirection.ltr,
-  );
+  // TextPainter fakePagePainter = TextPainter(
+  //   textDirection: TextDirection.ltr,
+  // );
+  // TextPainter realPagePainter = TextPainter(
+  //   textDirection: TextDirection.ltr,
+  // );
 
   void parseAllChapters(EpubContent? epubContent, BuildContext context) async {
-    images = epubContent?.Images;
     List<String> onlyChapterContent = epubContent?.Html?.values
             .toList()
             .map((e) => e.Content ?? "")
@@ -75,37 +123,37 @@ class _BookViewState extends State<BookView> {
     final safeHeight = mediaQuery.size.height -
         mediaQuery.padding.top -
         mediaQuery.padding.bottom;
-    final pageSize = Size(
-      safeWidth - 2 * paddingHorizontal,
-      safeHeight - 2 * paddingVertical,
-    );
 
-    // Load initial chapters
+    images = epubContent?.Images;
+    final effectiveWidth = safeWidth - 2 * paddingHorizontal;
+    final effectiveHeight = safeHeight - 2 * paddingVertical;
+
     for (int i = 0;
         i < initialChaptersToLoad && i < onlyChapterContent.length;
         i++) {
-      paginatedHtml.addAll(await convertChapterToTextSpans(
-          onlyChapterContent[i],
-          pageSize,
-          realPagePainter,
-          fakePagePainter,
-          images));
+      paginatedHtml.addAll(await doExpensiveWorkInBackground(BookData(
+        chapterHtmlContent: onlyChapterContent[i],
+        width: effectiveWidth,
+        height: effectiveHeight,
+      ).toString()));
       _lastLoadedChapterIndex = i;
     }
     setState(() {});
     debugPrint("done with initial chapters");
     // Schedule remaining chapters to load in the background
-    _loadRemainingChapters(onlyChapterContent, pageSize);
+    _loadRemainingChapters(onlyChapterContent, effectiveWidth, effectiveHeight);
   }
 
   Future<void> _loadRemainingChapters(
-      List<String> chapters, Size pageSize) async {
-
+      List<String> chapters, double width, double height) async {
     for (int i = _lastLoadedChapterIndex + 1; i < chapters.length; i++) {
       if (!mounted) break;
 
-      final newSpans = await convertChapterToTextSpans(
-          chapters[i], pageSize, realPagePainter, fakePagePainter, images);
+      final newSpans = await doExpensiveWorkInBackground(BookData(
+        chapterHtmlContent: chapters[i],
+        width: width,
+        height: height,
+      ).toString());
 
       // setState(() {
       paginatedHtml.addAll(newSpans);

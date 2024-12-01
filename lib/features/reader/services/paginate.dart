@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:dart_ui_isolate/dart_ui_isolate.dart';
+import 'package:ree/features/reader/screens/reader.dart';
 import 'package:ree/features/reader/utils/styles.dart';
 import 'package:epubx/epubx.dart';
 import 'package:flutter/material.dart';
@@ -7,14 +9,24 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart' as dom;
 import 'package:flutter/src/widgets/image.dart' as img_lib;
 
+Future<List<TextSpan>> doExpensiveWorkInBackground(
+    String chapterHtmlContent) async {
+  return await flutterCompute(convertChapterToTextSpans, chapterHtmlContent);
+}
+
+@pragma('vm:entry-point')
 Future<List<TextSpan>> convertChapterToTextSpans(
-  String chapterHtmlContent,
-  Size pageSize,
-  TextPainter realPagePainter,
-  TextPainter fakePagePainter,
-  Map<String, EpubByteContentFile>? images,
+  String bookData,
 ) async {
   // Parse HTML content
+  final BookData deserialized = BookData.fromJsonString(bookData);
+  String chapterHtmlContent = deserialized.chapterHtmlContent;
+  double width = deserialized.width;
+  double height = deserialized.height;
+  Size pageSize = Size(
+    width,
+    height,
+  );
   final document = html_parser.parse(chapterHtmlContent);
   final body = document.body;
   TextStyle baseStyle = const TextStyle(

@@ -52,6 +52,7 @@ dependencies:
   equatable: ^2.0.5
   bookfx: ^0.0.2
   path_provider: ^2.1.5
+  dart_ui_isolate: ^1.1.1
 
 dev_dependencies:
   flutter_test:
