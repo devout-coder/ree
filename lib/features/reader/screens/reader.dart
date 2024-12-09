@@ -32,8 +32,7 @@ class _BookViewState extends State<BookView> {
 
     EpubBook epubBook = await EpubReader.readBook(epubBytes);
     if (!mounted) return;
-
-    parseAllChapters(epubBook.Content, context);
+    parseAllChapters(epubBook, context);
   }
 
   Future<Uint8List> loadEpubAsBytes(String assetPath) async {
@@ -60,13 +59,28 @@ class _BookViewState extends State<BookView> {
     textDirection: TextDirection.ltr,
   );
 
-  void parseAllChapters(EpubContent? epubContent, BuildContext context) async {
-    images = epubContent?.Images;
-    List<String> onlyChapterContent = epubContent?.Html?.values
-            .toList()
-            .map((e) => e.Content ?? "")
-            .toList() ??
-        [];
+  List<EpubChapter> parseChapters(EpubBook epubBook) =>
+      epubBook.Chapters?.fold<List<EpubChapter>>(
+        [],
+        (acc, next) {
+          acc.add(next);
+          next.SubChapters?.forEach(acc.add);
+          return acc;
+        },
+      ) ??
+      [];
+
+  void parseAllChapters(EpubBook epubBook, BuildContext context) async {
+    images = epubBook.Content?.Images;
+    // List<String> onlyChapterContent = epubBook.Content?.Html?.values
+    //         .toList()
+    //         .map((e) => e.Content ?? "")
+    //         .toList() ??
+    //     [];
+
+    List<EpubChapter> chapters = parseChapters(epubBook);
+    List<String> onlyChapterContent =
+        chapters.map((e) => e.HtmlContent ?? "").toList();
 
     final mediaQuery = MediaQuery.of(context);
     final safeWidth = mediaQuery.size.width -
@@ -80,10 +94,24 @@ class _BookViewState extends State<BookView> {
       safeHeight - 2 * paddingVertical,
     );
 
-    // Load initial chapters
-    for (int i = 0;
-        i < initialChaptersToLoad && i < onlyChapterContent.length;
-        i++) {
+    // // Load initial chapters
+    // for (int i = 0;
+    //     i < initialChaptersToLoad && i < onlyChapterContent.length;
+    //     i++) {
+    //   paginatedHtml.addAll(await convertChapterToTextSpans(
+    //       onlyChapterContent[i],
+    //       pageSize,
+    //       realPagePainter,
+    //       fakePagePainter,
+    //       images));
+    //   _lastLoadedChapterIndex = i;
+    // }
+    // setState(() {});
+    // debugPrint("done with initial chapters");
+    // // Schedule remaining chapters to load in the background
+    // _loadRemainingChapters(onlyChapterContent, pageSize);
+
+    for (int i = 0; i < onlyChapterContent.length; i++) {
       paginatedHtml.addAll(await convertChapterToTextSpans(
           onlyChapterContent[i],
           pageSize,
@@ -95,12 +123,10 @@ class _BookViewState extends State<BookView> {
     setState(() {});
     debugPrint("done with initial chapters");
     // Schedule remaining chapters to load in the background
-    _loadRemainingChapters(onlyChapterContent, pageSize);
   }
 
   Future<void> _loadRemainingChapters(
       List<String> chapters, Size pageSize) async {
-
     for (int i = _lastLoadedChapterIndex + 1; i < chapters.length; i++) {
       if (!mounted) break;
 

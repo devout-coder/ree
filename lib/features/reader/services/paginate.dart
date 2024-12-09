@@ -115,7 +115,6 @@ Future<List<TextSpan>> parseNodes(
       }
     }
   } else if (node.children.isEmpty && node.text.isNotEmpty) {
-    // if (node.children.isEmpty) {
     //base condition
     TextSpan fakePreviousText = fakePagePainter.text as TextSpan;
     TextSpan realPreviousText = realPagePainter.text as TextSpan;
