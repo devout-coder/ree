@@ -2,7 +2,11 @@ import 'package:epubx/epubx.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:ree/features/page_flip/page_flip.dart';
+import 'package:ree/features/reader/models/serialized_span.dart';
 import 'package:ree/features/reader/services/paginate.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 class BookView extends StatefulWidget {
   final Uint8List? bookBytes;
@@ -21,18 +25,20 @@ class _BookViewState extends State<BookView> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      loadEpubFile();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      Uint8List epubBytes =
+          widget.bookBytes ?? await loadEpubAsBytes('assets/innovators.epub');
+
+      EpubBook epubBook = await EpubReader.readBook(epubBytes);
+      // Try to load saved pages first
+      await loadFromJson(epubBook.Title ?? "unknown");
+
+      // If no pages were loaded, parse the epub
+      if (paginatedHtml.isEmpty) {
+        if (!mounted) return;
+        parseAllChapters(epubBook, context);
+      }
     });
-  }
-
-  void loadEpubFile() async {
-    Uint8List epubBytes =
-        widget.bookBytes ?? await loadEpubAsBytes('assets/innovators.epub');
-
-    EpubBook epubBook = await EpubReader.readBook(epubBytes);
-    if (!mounted) return;
-    parseAllChapters(epubBook, context);
   }
 
   Future<Uint8List> loadEpubAsBytes(String assetPath) async {
@@ -59,7 +65,7 @@ class _BookViewState extends State<BookView> {
     textDirection: TextDirection.ltr,
   );
 
-  List<EpubChapter> parseChapters(EpubBook epubBook) =>
+  List<EpubChapter> getChapters(EpubBook epubBook) =>
       epubBook.Chapters?.fold<List<EpubChapter>>(
         [],
         (acc, next) {
@@ -78,7 +84,7 @@ class _BookViewState extends State<BookView> {
     //         .toList() ??
     //     [];
 
-    List<EpubChapter> chapters = parseChapters(epubBook);
+    List<EpubChapter> chapters = getChapters(epubBook);
     List<String> onlyChapterContent =
         chapters.map((e) => e.HtmlContent ?? "").toList();
 
@@ -122,6 +128,7 @@ class _BookViewState extends State<BookView> {
     }
     setState(() {});
     debugPrint("done with initial chapters");
+    await saveToJson(epubBook.Title ?? "unknown"); // Save pages after parsing
     // Schedule remaining chapters to load in the background
   }
 
@@ -139,6 +146,55 @@ class _BookViewState extends State<BookView> {
       // });
     }
     debugPrint("done with remaining chapters");
+  }
+
+  Future<String> get _localPath async {
+    final directory = await getApplicationDocumentsDirectory();
+    return directory.path;
+  }
+
+  Future<File> _getLocalFile(String bookId) async {
+    final path = await _localPath;
+    return File('$path/$bookId.json');
+  }
+
+  Future<void> saveToJson(String title) async {
+    try {
+      final serializedPages = paginatedHtml
+          .map((textSpan) => SerializedSpan.fromTextSpan(textSpan).toJson())
+          .toList();
+
+      final jsonString = jsonEncode(serializedPages);
+
+      // Save to file
+      final file = await _getLocalFile(title); // Replace with actual book ID
+      await file.writeAsString(jsonString);
+      debugPrint('Saved pages to: ${file.path}');
+    } catch (e) {
+      debugPrint('Error saving JSON: $e');
+    }
+  }
+
+  Future<void> loadFromJson(String title) async {
+    try {
+      final file = await _getLocalFile(title); // Replace with actual book ID
+
+      if (await file.exists()) {
+        final jsonString = await file.readAsString();
+        final List<dynamic> jsonList = jsonDecode(jsonString);
+
+        paginatedHtml = jsonList
+            .map((json) => SerializedSpan.fromJson(json).toTextSpan())
+            .toList();
+
+        setState(() {});
+        debugPrint('Loaded pages from: ${file.path}');
+      } else {
+        debugPrint('No saved pages found');
+      }
+    } catch (e) {
+      debugPrint('Error loading JSON: $e');
+    }
   }
 
   @override
