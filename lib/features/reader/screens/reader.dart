@@ -27,8 +27,8 @@ class _BookViewState extends State<BookView> {
   }
 
   void loadEpubFile() async {
-    Uint8List epubBytes =
-        widget.bookBytes ?? await loadEpubAsBytes('assets/innovators.epub');
+    Uint8List epubBytes = widget.bookBytes ??
+        await loadEpubAsBytes('assets/six-easy-pieces.epub');
 
     EpubBook epubBook = await EpubReader.readBook(epubBytes);
     if (!mounted) return;
@@ -112,6 +112,7 @@ class _BookViewState extends State<BookView> {
     // _loadRemainingChapters(onlyChapterContent, pageSize);
 
     for (int i = 0; i < onlyChapterContent.length; i++) {
+      print("i: $i\n${onlyChapterContent[i]}");
       paginatedHtml.addAll(await convertChapterToTextSpans(
           onlyChapterContent[i],
           pageSize,
