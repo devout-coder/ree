@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+double paddingHorizontal = 16;
+double paddingVertical = 16;
+
 final Map<String, TextStyle> tagStyles = {
   // Headings
   'h1': const TextStyle(

@@ -1,5 +1,9 @@
 import 'dart:typed_data';
+import 'dart:io';
+import 'dart:convert';
 
+import 'package:path_provider/path_provider.dart';
+import 'package:ree/features/reader/models/serialized_span.dart';
 import 'package:ree/features/reader/utils/styles.dart';
 import 'package:epubx/epubx.dart';
 import 'package:flutter/material.dart';
@@ -229,4 +233,23 @@ List<String> bsOnTextSpan(
     newText.substring(0, ans),
     newText.substring(ans + 1),
   ];
+}
+
+Future<void> saveProcessedPages(String bookId, List<TextSpan> pages) async {
+  try {
+    final directory = await getApplicationDocumentsDirectory();
+    final file = File('${directory.path}/processed_books/$bookId.json');
+
+    // Create directory if it doesn't exist
+    await file.parent.create(recursive: true);
+
+    final serializedPages = pages
+        .map((textSpan) => SerializedSpan.fromTextSpan(textSpan).toJson())
+        .toList();
+
+    final jsonString = jsonEncode(serializedPages);
+    await file.writeAsString(jsonString);
+  } catch (e) {
+    debugPrint('Error saving processed pages: $e');
+  }
 }
