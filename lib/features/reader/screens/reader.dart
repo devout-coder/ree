@@ -18,6 +18,8 @@ class _BookViewState extends State<BookView> {
   static const int initialChaptersToLoad = 2;
   int _lastLoadedChapterIndex = 0;
 
+  bool _areControlsVisible = false;
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +53,7 @@ class _BookViewState extends State<BookView> {
   Map<String, EpubByteContentFile>? images;
   // EpubContent? content;
   List<TextSpan> paginatedHtml = [];
+  List<String> chapterTitles = [];
 
   TextPainter fakePagePainter = TextPainter(
     textDirection: TextDirection.ltr,
@@ -59,16 +62,24 @@ class _BookViewState extends State<BookView> {
     textDirection: TextDirection.ltr,
   );
 
-  List<EpubChapter> parseChapters(EpubBook epubBook) =>
-      epubBook.Chapters?.fold<List<EpubChapter>>(
-        [],
-        (acc, next) {
-          acc.add(next);
-          next.SubChapters?.forEach(acc.add);
-          return acc;
-        },
-      ) ??
-      [];
+  List<EpubChapter> parseChapters(EpubBook epubBook) {
+    List<EpubChapter> allChapters = [];
+
+    if (epubBook.Chapters != null) {
+      for (var chapter in epubBook.Chapters!) {
+        allChapters.add(chapter);
+        if (chapter.SubChapters != null) {
+          allChapters.addAll(chapter.SubChapters!);
+        }
+      }
+    }
+
+    return allChapters;
+  }
+
+  List<String> parseChapterTitles(List<EpubChapter> chapters) {
+    return chapters.map((e) => e.Title ?? "").toList();
+  }
 
   void parseAllChapters(EpubBook epubBook, BuildContext context) async {
     images = epubBook.Content?.Images;
@@ -79,6 +90,7 @@ class _BookViewState extends State<BookView> {
     //     [];
 
     List<EpubChapter> chapters = parseChapters(epubBook);
+    chapterTitles = parseChapterTitles(chapters);
     List<String> onlyChapterContent =
         chapters.map((e) => e.HtmlContent ?? "").toList();
 
@@ -112,7 +124,7 @@ class _BookViewState extends State<BookView> {
     // _loadRemainingChapters(onlyChapterContent, pageSize);
 
     for (int i = 0; i < onlyChapterContent.length; i++) {
-      print("i: $i\n${onlyChapterContent[i]}");
+      print("$i ${chapterTitles[i]}\n${onlyChapterContent[i]}");
       paginatedHtml.addAll(await convertChapterToTextSpans(
           onlyChapterContent[i],
           pageSize,
@@ -142,31 +154,125 @@ class _BookViewState extends State<BookView> {
     debugPrint("done with remaining chapters");
   }
 
+  void _toggleControls() {
+    setState(() {
+      _areControlsVisible = !_areControlsVisible;
+    });
+    // Auto-hide controls after 3 seconds
+    if (_areControlsVisible) {
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() {
+            _areControlsVisible = false;
+          });
+        }
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: PageFlipWidget(
-          key: GlobalKey(),
-          onLastPageExit: () {
-            debugPrint("last page reached");
-            setState(() {});
-          },
-          initialIndex: _currentPage,
-          onPageChanged: (pageNumber) {
-            _currentPage = pageNumber;
-            // debugPrint("current page: $_currentPage");
-          },
-          children: <Widget>[
-            for (var i = 0; i < paginatedHtml.length; i++)
-              Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: paddingHorizontal,
-                  vertical: paddingVertical,
-                ),
-                child: RichText(text: paginatedHtml[i]),
-              )
+      drawer: Drawer(
+        child: ListView(
+          children: [
+            const DrawerHeader(
+              child: Text('Table of Contents'),
+            ),
+            for (int i = 0; i < chapterTitles.length; i++)
+              ListTile(
+                title: Text(chapterTitles[i]),
+                onTap: () {
+                  // TODO: Implement chapter navigation
+                  Navigator.pop(context);
+                },
+              ),
           ],
+        ),
+      ),
+      body: SafeArea(
+        child: GestureDetector(
+          onVerticalDragEnd: (_) => _toggleControls(),
+          child: Stack(
+            children: [
+              PageFlipWidget(
+                key: GlobalKey(),
+                onLastPageExit: () {
+                  debugPrint("last page reached");
+                  setState(() {});
+                },
+                initialIndex: _currentPage,
+                onPageChanged: (pageNumber) {
+                  _currentPage = pageNumber;
+                  // debugPrint("current page: $_currentPage");
+                },
+                children: <Widget>[
+                  for (var i = 0; i < paginatedHtml.length; i++)
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: paddingHorizontal,
+                        vertical: paddingVertical,
+                      ),
+                      child: RichText(text: paginatedHtml[i]),
+                    )
+                ],
+              ),
+              // Top control bar
+              AnimatedOpacity(
+                opacity: _areControlsVisible ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: Container(
+                  height: 56,
+                  color: Theme.of(context)
+                      .scaffoldBackgroundColor
+                      .withOpacity(0.9),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.font_download),
+                        onPressed: () {
+                          // TODO: Implement font settings
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Bottom control bar
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: AnimatedOpacity(
+                  opacity: _areControlsVisible ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Container(
+                    height: 56,
+                    color: Theme.of(context)
+                        .scaffoldBackgroundColor
+                        .withOpacity(0.9),
+                    child: Row(
+                      children: [
+                        Builder(
+                          builder: (context) => IconButton(
+                            icon: const Icon(Icons.list),
+                            onPressed: () {
+                              Scaffold.of(context).openDrawer();
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
