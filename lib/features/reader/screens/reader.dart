@@ -20,6 +20,9 @@ class _BookViewState extends State<BookView> {
 
   bool _areControlsVisible = false;
 
+  // Add this new field to store chapter starting pages
+  List<int> chapterStartPages = [];
+
   @override
   void initState() {
     super.initState();
@@ -68,9 +71,9 @@ class _BookViewState extends State<BookView> {
     if (epubBook.Chapters != null) {
       for (var chapter in epubBook.Chapters!) {
         allChapters.add(chapter);
-        if (chapter.SubChapters != null) {
-          allChapters.addAll(chapter.SubChapters!);
-        }
+        // if (chapter.SubChapters != null) {
+        //   allChapters.addAll(chapter.SubChapters!);
+        // }
       }
     }
 
@@ -124,6 +127,9 @@ class _BookViewState extends State<BookView> {
     // _loadRemainingChapters(onlyChapterContent, pageSize);
 
     for (int i = 0; i < onlyChapterContent.length; i++) {
+      // Store the current length before adding new pages
+      chapterStartPages.add(paginatedHtml.length);
+
       print("$i ${chapterTitles[i]}\n${onlyChapterContent[i]}");
       paginatedHtml.addAll(await convertChapterToTextSpans(
           onlyChapterContent[i],
@@ -183,7 +189,9 @@ class _BookViewState extends State<BookView> {
               ListTile(
                 title: Text(chapterTitles[i]),
                 onTap: () {
-                  // TODO: Implement chapter navigation
+                  setState(() {
+                    _currentPage = chapterStartPages[i];
+                  });
                   Navigator.pop(context);
                 },
               ),
