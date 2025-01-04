@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+import 'package:epubx/epubx.dart';
+import 'package:flutter/material.dart' as material;
 import 'package:flutter/material.dart';
 import 'package:flutter_html_reborn/flutter_html_reborn.dart';
 
@@ -7,24 +10,50 @@ class HtmlPaginator {
     required BuildContext context,
     required double pageHeight,
     required double pageWidth,
+    required double paddingHorizontal,
+    required double paddingVertical,
+    required Map<String, EpubByteContentFile>? images,
   }) async {
     final List<Widget> pages = [];
     final GlobalKey measurementKey = GlobalKey();
+
+    Map<String, Style> htmlStyles = {};
+    final htmlExtensions = [
+      if (images != null)
+        TagExtension(
+          tagsToExtend: {"img"},
+          builder: (extensionContext) {
+            final url =
+                extensionContext.attributes['src']!.replaceAll('../', '');
+            return images[url]?.Content != null
+                ? material.Image(
+                    image: MemoryImage(
+                      Uint8List.fromList(images[url]!.Content!),
+                    ),
+                  )
+                : const SizedBox();
+          },
+        )
+    ];
 
     // Create an overlay entry to measure the content
     final OverlayEntry measurementEntry = OverlayEntry(
       builder: (context) => Opacity(
         opacity: 0.0,
-        child: SingleChildScrollView(
-          child: Html(
-            key: measurementKey,
-            data: htmlContent,
-            style: {
-              "body": Style(
-                margin: Margins.zero,
-                padding: HtmlPaddings.zero,
+        child: Material(
+          clipBehavior: Clip.antiAliasWithSaveLayer,
+          type: MaterialType.transparency,
+          child: SingleChildScrollView(
+            physics: const NeverScrollableScrollPhysics(),
+            child: Container(
+              constraints: BoxConstraints(maxWidth: pageWidth),
+              child: Html(
+                key: measurementKey,
+                data: htmlContent,
+                style: htmlStyles,
+                extensions: htmlExtensions,
               ),
-            },
+            ),
           ),
         ),
       ),
@@ -33,10 +62,10 @@ class HtmlPaginator {
     // Add the measurement widget to the overlay
     Overlay.of(context).insert(measurementEntry);
 
-    // Wait for the layout to complete
-    await Future.delayed(const Duration(milliseconds: 100));
+    // Increase delay to ensure proper rendering
+    await Future.delayed(const Duration(milliseconds: 200));
 
-    // Get the total height
+    // Get the total height using more precise measurement
     final RenderBox? renderBox =
         measurementKey.currentContext?.findRenderObject() as RenderBox?;
 
@@ -46,55 +75,58 @@ class HtmlPaginator {
     }
 
     final double totalHeight = renderBox.size.height;
-    final int pageCount = (totalHeight / pageHeight).ceil();
+    double remainingHeight = totalHeight;
+    double currentOffset = 0.0;
 
-    // Create pages based on scroll offset
-    for (int i = 0; i < pageCount; i++) {
-      final bool isLastPage = i == pageCount - 1;
-      final double remainingHeight = totalHeight - (i * pageHeight);
+    while (remainingHeight > 0) {
       final double currentPageHeight =
-          isLastPage ? remainingHeight : pageHeight;
+          remainingHeight > pageHeight ? pageHeight : remainingHeight;
 
       pages.add(
         SizedBox(
-          height: pageHeight,
-          width: pageWidth,
-          child: SingleChildScrollView(
-            physics: const NeverScrollableScrollPhysics(),
-            child: SizedBox(
-              height: pageHeight,
-              child: Stack(
-                children: [
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: currentPageHeight,
-                    child: ClipRect(
-                      child: OverflowBox(
-                        alignment: Alignment.topLeft,
-                        maxHeight: totalHeight,
-                        child: Transform.translate(
-                          offset: Offset(0, -i * pageHeight),
-                          child: Html(
-                            data: htmlContent,
-                            style: {
-                              "body": Style(
-                                margin: Margins.zero,
-                                padding: HtmlPaddings.zero,
-                              ),
-                            },
+          height: pageHeight + (paddingVertical * 2),
+          width: pageWidth + (paddingHorizontal * 2),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: paddingHorizontal,
+              vertical: paddingVertical,
+            ),
+            child: SingleChildScrollView(
+              physics: const NeverScrollableScrollPhysics(),
+              child: SizedBox(
+                height: pageHeight,
+                child: Stack(
+                  children: [
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: currentPageHeight,
+                      child: ClipRect(
+                        child: OverflowBox(
+                          alignment: Alignment.topLeft,
+                          maxHeight: totalHeight,
+                          child: Transform.translate(
+                            offset: Offset(0, -currentOffset),
+                            child: Html(
+                              data: htmlContent,
+                              style: htmlStyles,
+                              extensions: htmlExtensions,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
         ),
       );
+
+      remainingHeight -= pageHeight;
+      currentOffset += pageHeight;
     }
 
     // Remove the measurement widget

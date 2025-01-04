@@ -4,6 +4,6 @@ import 'package:routemaster/routemaster.dart';
 import 'package:flutter/material.dart';
 
 final routeMap = RouteMap(routes: {
-  // "/": (_) => const MaterialPage(child: BookView()),
-  "/": (_) => const MaterialPage(child: Tp()),
+  "/": (_) => const MaterialPage(child: BookView()),
+  // "/": (_) => const MaterialPage(child: Tp()),
 });

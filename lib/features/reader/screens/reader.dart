@@ -2,7 +2,7 @@ import 'package:epubx/epubx.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:ree/features/page_flip/page_flip.dart';
-import 'package:ree/features/reader/services/paginate.dart';
+import 'package:ree/features/reader/services/html_paginator.dart';
 
 class BookView extends StatefulWidget {
   final Uint8List? bookBytes;
@@ -14,9 +14,6 @@ class BookView extends StatefulWidget {
 
 class _BookViewState extends State<BookView> {
   int _currentPage = 0;
-
-  static const int initialChaptersToLoad = 2;
-  int _lastLoadedChapterIndex = 0;
 
   bool _areControlsVisible = false;
 
@@ -32,8 +29,20 @@ class _BookViewState extends State<BookView> {
   }
 
   void loadEpubFile() async {
-    Uint8List epubBytes = widget.bookBytes ??
-        await loadEpubAsBytes('assets/six-easy-pieces.epub');
+    List<String> books = [
+      "six-easy-pieces",
+      "hitchhiker's-guide-to-galaxy",
+      "innovators",
+      "animal_farm",
+      "neuromancer",
+      "1984",
+      "12-rules-for-life",
+      "fahrenheit-451",
+      "verity",
+      "brief-history-of-time",
+    ];
+    Uint8List epubBytes =
+        widget.bookBytes ?? await loadEpubAsBytes('assets/${books[2]}.epub');
 
     EpubBook epubBook = await EpubReader.readBook(epubBytes);
     if (!mounted) return;
@@ -55,21 +64,15 @@ class _BookViewState extends State<BookView> {
 
   Map<String, EpubByteContentFile>? images;
   // EpubContent? content;
-  List<TextSpan> paginatedHtml = [];
+  List<Widget> paginatedHtml = [];
   List<String> chapterTitles = [];
-
-  TextPainter fakePagePainter = TextPainter(
-    textDirection: TextDirection.ltr,
-  );
-  TextPainter realPagePainter = TextPainter(
-    textDirection: TextDirection.ltr,
-  );
 
   List<EpubChapter> parseChapters(EpubBook epubBook) {
     List<EpubChapter> allChapters = [];
 
     if (epubBook.Chapters != null) {
       for (var chapter in epubBook.Chapters!) {
+        chapterTitles.add(chapter.Title ?? "");
         allChapters.add(chapter);
         // if (chapter.SubChapters != null) {
         //   allChapters.addAll(chapter.SubChapters!);
@@ -80,20 +83,9 @@ class _BookViewState extends State<BookView> {
     return allChapters;
   }
 
-  List<String> parseChapterTitles(List<EpubChapter> chapters) {
-    return chapters.map((e) => e.Title ?? "").toList();
-  }
-
   void parseAllChapters(EpubBook epubBook, BuildContext context) async {
     images = epubBook.Content?.Images;
-    // List<String> onlyChapterContent = epubBook.Content?.Html?.values
-    //         .toList()
-    //         .map((e) => e.Content ?? "")
-    //         .toList() ??
-    //     [];
-
     List<EpubChapter> chapters = parseChapters(epubBook);
-    chapterTitles = parseChapterTitles(chapters);
     List<String> onlyChapterContent =
         chapters.map((e) => e.HtmlContent ?? "").toList();
 
@@ -104,60 +96,22 @@ class _BookViewState extends State<BookView> {
     final safeHeight = mediaQuery.size.height -
         mediaQuery.padding.top -
         mediaQuery.padding.bottom;
-    final pageSize = Size(
-      safeWidth - 2 * paddingHorizontal,
-      safeHeight - 2 * paddingVertical,
-    );
-
-    // // Load initial chapters
-    // for (int i = 0;
-    //     i < initialChaptersToLoad && i < onlyChapterContent.length;
-    //     i++) {
-    //   paginatedHtml.addAll(await convertChapterToTextSpans(
-    //       onlyChapterContent[i],
-    //       pageSize,
-    //       realPagePainter,
-    //       fakePagePainter,
-    //       images));
-    //   _lastLoadedChapterIndex = i;
-    // }
-    // setState(() {});
-    // debugPrint("done with initial chapters");
-    // // Schedule remaining chapters to load in the background
-    // _loadRemainingChapters(onlyChapterContent, pageSize);
 
     for (int i = 0; i < onlyChapterContent.length; i++) {
-      // Store the current length before adding new pages
       chapterStartPages.add(paginatedHtml.length);
 
-      print("$i ${chapterTitles[i]}\n${onlyChapterContent[i]}");
-      paginatedHtml.addAll(await convertChapterToTextSpans(
-          onlyChapterContent[i],
-          pageSize,
-          realPagePainter,
-          fakePagePainter,
-          images));
-      _lastLoadedChapterIndex = i;
+      paginatedHtml.addAll(await HtmlPaginator.paginateHtml(
+        htmlContent: onlyChapterContent[i],
+        context: context,
+        pageHeight: safeHeight - (paddingVertical * 2),
+        pageWidth: safeWidth - (paddingHorizontal * 2),
+        paddingHorizontal: paddingHorizontal,
+        paddingVertical: paddingVertical,
+        images: images,
+      ));
     }
     setState(() {});
-    debugPrint("done with initial chapters");
-    // Schedule remaining chapters to load in the background
-  }
-
-  Future<void> _loadRemainingChapters(
-      List<String> chapters, Size pageSize) async {
-    for (int i = _lastLoadedChapterIndex + 1; i < chapters.length; i++) {
-      if (!mounted) break;
-
-      final newSpans = await convertChapterToTextSpans(
-          chapters[i], pageSize, realPagePainter, fakePagePainter, images);
-
-      // setState(() {
-      paginatedHtml.addAll(newSpans);
-      _lastLoadedChapterIndex = i;
-      // });
-    }
-    debugPrint("done with remaining chapters");
+    debugPrint("done with all chapters");
   }
 
   void _toggleControls() {
@@ -214,16 +168,7 @@ class _BookViewState extends State<BookView> {
                   _currentPage = pageNumber;
                   // debugPrint("current page: $_currentPage");
                 },
-                children: <Widget>[
-                  for (var i = 0; i < paginatedHtml.length; i++)
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: paddingHorizontal,
-                        vertical: paddingVertical,
-                      ),
-                      child: RichText(text: paginatedHtml[i]),
-                    )
-                ],
+                children: paginatedHtml,
               ),
               // Top control bar
               AnimatedOpacity(
