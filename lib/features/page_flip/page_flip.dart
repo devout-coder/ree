@@ -133,9 +133,26 @@ class PageFlipWidgetState extends State<PageFlipWidget>
         if (_controllers[currPageTurnIndex].value <=
             (widget.cutoffForward + 0.15)) {
           await nextPage();
+        } else {
+          if (!_isLastPage) {
+            await _controllers[currPageTurnIndex].forward();
+          }
         }
       } else {
-        await previousPage();
+        if (!_isFirstPage &&
+            _controllers[prevPageTurnIndex].value >= widget.cutoffPrevious) {
+          await previousPage();
+        } else {
+          if (_isFirstPage) {
+            await _controllers[currPageTurnIndex].forward();
+          } else {
+            await _controllers[prevPageTurnIndex].reverse();
+
+            if (!_isFirstPage) {
+              await previousPage();
+            }
+          }
+        }
       }
     }
 
@@ -143,7 +160,6 @@ class PageFlipWidgetState extends State<PageFlipWidget>
   }
 
   Future nextPage() async {
-    if (_isLastPage) return;
     await _controllers[currPageTurnIndex].reverse();
     if (mounted) {
       widget.onPageChanged?.call(currentPageIndex.value + 1);
@@ -158,7 +174,6 @@ class PageFlipWidgetState extends State<PageFlipWidget>
   }
 
   Future previousPage() async {
-    if (_isFirstPage) return;
     await _controllers[prevPageTurnIndex].forward();
     if (mounted) {
       widget.onPageChanged?.call(currentPageIndex.value - 1);

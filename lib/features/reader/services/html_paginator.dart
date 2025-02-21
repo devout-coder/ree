@@ -3,6 +3,8 @@ import 'package:epubx/epubx.dart';
 import 'package:flutter/material.dart' as material;
 import 'package:flutter/material.dart';
 import 'package:flutter_html_reborn/flutter_html_reborn.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/widgets.dart';
 
 class HtmlPaginator {
   static Future<List<Widget>> paginateHtml({
@@ -37,7 +39,8 @@ class HtmlPaginator {
     ];
 
     // Create an overlay entry to measure the content
-    final OverlayEntry measurementEntry = OverlayEntry(
+    late final OverlayEntry measurementEntry;
+    measurementEntry = OverlayEntry(
       builder: (context) => Opacity(
         opacity: 0.0,
         child: Material(
@@ -59,11 +62,10 @@ class HtmlPaginator {
       ),
     );
 
-    // Add the measurement widget to the overlay
     Overlay.of(context).insert(measurementEntry);
 
-    // Increase delay to ensure proper rendering
-    await Future.delayed(const Duration(milliseconds: 200));
+    // Wait for images and rendering
+    await Future.delayed(const Duration(milliseconds: 600));
 
     // Get the total height using more precise measurement
     final RenderBox? renderBox =
@@ -74,6 +76,7 @@ class HtmlPaginator {
       return [];
     }
 
+    // Add a small buffer to the total height to prevent clipping
     final double totalHeight = renderBox.size.height;
     double remainingHeight = totalHeight;
     double currentOffset = 0.0;
@@ -84,12 +87,13 @@ class HtmlPaginator {
 
       pages.add(
         SizedBox(
-          height: pageHeight + (paddingVertical * 2),
-          width: pageWidth + (paddingHorizontal * 2),
+          height: pageHeight,
+          width: pageWidth,
           child: Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: paddingHorizontal,
-              vertical: paddingVertical,
+              // horizontal: paddingHorizontal, vertical: paddingVertical,
+              horizontal: 0,
+              vertical: 0,
             ),
             child: SingleChildScrollView(
               physics: const NeverScrollableScrollPhysics(),
