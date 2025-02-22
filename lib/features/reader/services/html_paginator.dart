@@ -65,7 +65,7 @@ class HtmlPaginator {
     Overlay.of(context).insert(measurementEntry);
 
     // Wait for images and rendering
-    await Future.delayed(const Duration(milliseconds: 600));
+    await Future.delayed(const Duration(milliseconds: 700));
 
     // Get the total height using more precise measurement
     final RenderBox? renderBox =
@@ -90,10 +90,9 @@ class HtmlPaginator {
           height: pageHeight,
           width: pageWidth,
           child: Padding(
-            padding: EdgeInsets.symmetric(
+            padding: EdgeInsets.only(
               // horizontal: paddingHorizontal, vertical: paddingVertical,
-              horizontal: 0,
-              vertical: 0,
+              top: paddingVertical,
             ),
             child: SingleChildScrollView(
               physics: const NeverScrollableScrollPhysics(),

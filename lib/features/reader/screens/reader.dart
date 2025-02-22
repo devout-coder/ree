@@ -42,7 +42,7 @@ class _BookViewState extends State<BookView> {
       "brief-history-of-time",
     ];
     Uint8List epubBytes =
-        widget.bookBytes ?? await loadEpubAsBytes('assets/${books[0]}.epub');
+        widget.bookBytes ?? await loadEpubAsBytes('assets/${books[4]}.epub');
 
     EpubBook epubBook = await EpubReader.readBook(epubBytes);
     if (!mounted) return;
@@ -60,7 +60,7 @@ class _BookViewState extends State<BookView> {
   }
 
   double paddingHorizontal = 16;
-  double paddingVertical = 16;
+  double paddingVertical = 30;
 
   Map<String, EpubByteContentFile>? images;
   // EpubContent? content;
@@ -103,8 +103,8 @@ class _BookViewState extends State<BookView> {
       paginatedHtml.addAll(await HtmlPaginator.paginateHtml(
         htmlContent: onlyChapterContent[i],
         context: context,
-        pageHeight: safeHeight,
-        pageWidth: safeWidth,
+        pageHeight: safeHeight - 2 * paddingVertical,
+        pageWidth: safeWidth - 2 * paddingHorizontal,
         paddingHorizontal: paddingHorizontal,
         paddingVertical: paddingVertical,
         images: images,
