@@ -42,17 +42,22 @@ dependencies:
   file_selector: ^1.0.1
   # epub_view: ^3.2.0
 
-  # html: ^0.15.0
   # flutter_html: ^3.0.0-alpha.3
   # flutter_html: ^2.2.1
+  # flutter_html: ^3.0.0-beta.2
+  # flutter_html_reborn: ^3.0.0
   scrollable_positioned_list: ^0.3.2
-  collection: ^1.16.0
   universal_file: ^1.0.0
-  flutter_html: ^3.0.0-beta.2
   equatable: ^2.0.5
   bookfx: ^0.0.2
   path_provider: ^2.1.5
-  flutter_html_reborn: ^3.0.0
+
+  html: ^0.15.3
+  csslib: ^0.17.2
+  # Plugin for firstWhereOrNull extension on lists
+  collection: ^1.17.0
+  # plugin to manage lists and counting in a variety of styles
+  list_counter: ^1.0.2
 
 dev_dependencies:
   flutter_test:

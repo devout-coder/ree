@@ -2,9 +2,7 @@ import 'dart:typed_data';
 import 'package:epubx/epubx.dart';
 import 'package:flutter/material.dart' as material;
 import 'package:flutter/material.dart';
-import 'package:flutter_html_reborn/flutter_html_reborn.dart';
-import 'package:flutter/rendering.dart';
-import 'package:flutter/widgets.dart';
+import 'package:ree/features/html/flutter_html.dart';
 
 class HtmlPaginator {
   static Future<List<Widget>> paginateHtml({

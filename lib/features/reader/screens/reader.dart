@@ -42,7 +42,7 @@ class _BookViewState extends State<BookView> {
       "brief-history-of-time",
     ];
     Uint8List epubBytes =
-        widget.bookBytes ?? await loadEpubAsBytes('assets/${books[4]}.epub');
+        widget.bookBytes ?? await loadEpubAsBytes('assets/${books[2]}.epub');
 
     EpubBook epubBook = await EpubReader.readBook(epubBytes);
     if (!mounted) return;
